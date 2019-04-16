@@ -10,7 +10,7 @@ def resize(path, res):
 def process_lr(cfg, paths, f):
     lr = []
     # Process low resolution images
-    for i in trange(100):
+    for i in trange(64):
         lr.append(resize(paths[i], cfg.hr_resolution))
 
     f.create_dataset('lr', data=lr, dtype='uint8')
@@ -19,7 +19,7 @@ def process_lr(cfg, paths, f):
 def process_hr(cfg, paths, f):
     hr = []
     # Process high resolution images
-    for i in trange(100):
+    for i in trange(64):
         hr.append(resize(paths[i], cfg.hr_resolution))
 
     f.create_dataset('hr', data=hr, dtype='uint8')
@@ -41,7 +41,7 @@ def package_data(cfg):
 
     # Get image paths
     paths_lr = list((data_dir / 'LR').glob('*.JPG'))
-    paths_hr = list((data_dir / 'HR').glob('*.JPG'))
+    paths_hr = list((data_dir / 'HR').glob('*.png'))
     if not (paths_hr and paths_lr):
         print('Error: HR or LR is empty or not in correct format')
         exit(1)
@@ -49,7 +49,7 @@ def package_data(cfg):
     # Write to h5 file
     f = h5py.File(data_dir / 'data.h5', 'w')
     # Get our real world noise low resolution images
-    f = process_lr(cfg, paths_lr, f)
+    #f = process_lr(cfg, paths_lr, f)
     # Get our high resolution images
     f = process_hr(cfg, paths_hr, f)
     f.close()
