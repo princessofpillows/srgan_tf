@@ -88,7 +88,12 @@ class SRGAN(object):
 
             # Log a generated image
             tf.contrib.summary.image('SRGAN/generated', images)
-            
+    
+    def log_img(self, img, name):
+        if self.global_step.numpy() % (cfg.log_freq * 5) == 0:
+            with tf.contrib.summary.always_record_summaries():
+                img = tf.cast(img, tf.float32)
+                tf.contrib.summary.image(name, img, max_images=3)
 
     def update(self, hr_crop, hr_ds):
         # Construct graph
