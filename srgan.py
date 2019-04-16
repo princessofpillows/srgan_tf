@@ -30,6 +30,7 @@ class SRGAN(object):
 
         self.build_writers()
         self.preprocessing()
+        self.pretrain()
 
     def preprocessing(self):
         if cfg.package_data:
@@ -53,6 +54,37 @@ class SRGAN(object):
 
         self.size = len(hr)
         self.data_tr = tf.data.Dataset.from_tensor_slices((hr))
+    
+    def pretrain(self):
+        for epoch in trange(cfg.epochs):
+            # Uniform shuffle
+            batch = self.data_tr.shuffle(self.size).batch(cfg.batch_size)
+            for hr in batch:
+                # Random 96x96 crop
+                hr_crop = tf.image.random_crop(hr, (cfg.batch_size,) + cfg.crop_resolution + (3,))
+                # Apply gaussian blur and downsample to 24x24
+                hr_crop_blur = []
+                for i in range(len(hr_crop)):
+                    hr_crop_blur.append(cv2.GaussianBlur(hr_crop[i].numpy(), (3, 3), 0))
+                hr_ds = tf.image.resize(hr_crop_blur, cfg.lr_resolution, tf.image.ResizeMethod.BICUBIC)
+                
+                # Construct graph
+                with tf.GradientTape() as tape:
+                    sr = self.generator(hr_ds)
+                    loss = tf.keras.losses.mean_squared_error(hr_crop, sr)
+                
+                with tf.contrib.summary.record_summaries_every_n_global_steps(cfg.log_freq, self.global_step):
+                    tf.contrib.summary.scalar('loss', loss)
+                with tf.contrib.summary.record_summaries_every_n_global_steps(10, self.global_step):
+                    self.log_img("DS", hr_ds)
+                    self.log_img("SR", sr)
+                    self.log_img("HR", hr_crop)
+                # Compute/apply gradients
+                grads = tape.gradient(loss, self.generator.weights)
+                grads_and_vars = zip(grads, self.generator.weights)
+                self.gen_optim.apply_gradients(grads_and_vars)
+
+                self.global_step.assign_add(1)
 
     def build_writers(self):
         if not Path(cfg.save_dir).is_dir():
@@ -72,10 +104,10 @@ class SRGAN(object):
     def logger(self, tape, vgg_loss, adv_loss, percept_loss):
         with tf.contrib.summary.record_summaries_every_n_global_steps(cfg.log_freq, self.global_step):
             # Log vars
-            # tf.contrib.summary.scalar('SRGAN/mse_loss', mse_loss)
-            tf.contrib.summary.scalar('SRGAN/vgg_loss', vgg_loss)
-            tf.contrib.summary.scalar('SRGAN/adv_loss', adv_loss)
-            tf.contrib.summary.scalar('SRGAN/percept_loss', percept_loss)
+            # tf.contrib.summary.scalar('mse_loss', mse_loss)
+            tf.contrib.summary.scalar('vgg_loss', vgg_loss)
+            tf.contrib.summary.scalar('adv_loss', adv_loss)
+            tf.contrib.summary.scalar('percept_loss', percept_loss)
 
             # Log weights
             slots = self.gen_optim.get_slot_names()
@@ -89,7 +121,7 @@ class SRGAN(object):
     def log_img(self, name, img):
         if self.global_step.numpy() % (cfg.log_freq * 5) == 0:
             with tf.contrib.summary.always_record_summaries():
-                img = tf.cast(img, tf.float32)
+                img = tf.cast(img, tf.float32) * 128. + 128.
                 tf.contrib.summary.image(name, img, max_images=3)
 
     def update(self, hr_crop, hr_ds):

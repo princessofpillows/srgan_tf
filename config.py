@@ -82,7 +82,7 @@ model_arg.add_argument("--activ", type=str,
                        help="Activation function to use")
 
 model_arg.add_argument("--init", type=str,
-                       default="random_normal",
+                       default="glorot_normal",
                        choices=["glorot_normal", "glorot_uniform", "random_normal", "random_uniform", "truncated_normal"],
                        help="Initialization function to use")
 
