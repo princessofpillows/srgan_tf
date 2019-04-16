@@ -10,6 +10,11 @@ from models import Generator, Discriminator
 
 
 tf.enable_eager_execution()
+
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+config.log_device_placement=True
+
 cfg = get_config()
 
 class SRGAN(object):
@@ -69,26 +74,31 @@ class SRGAN(object):
         self.saver = tf.train.Checkpoint(generator=self.generator, gen_optim=self.gen_optim, discriminator=self.discriminator, 
                                         disc_optim=self.disc_optim, global_step=self.global_step, epoch=self.epoch)
 
-    def logger(self, tape, mse_loss, vgg_loss, adv_loss, percept_loss):
+    def logger(self, tape, mse_loss, vgg_loss, adv_loss, percept_loss, image):
         with tf.contrib.summary.record_summaries_every_n_global_steps(cfg.log_freq, self.global_step):
             # Log vars
-            tf.contrib.summary.scalar('mse_loss', mse_loss)
-            tf.contrib.summary.scalar('vgg_loss', vgg_loss)
-            tf.contrib.summary.scalar('adv_loss', adv_loss)
-            tf.contrib.summary.scalar('percept_loss', percept_loss)
+            tf.contrib.summary.scalar('SRGAN/mse_loss', mse_loss)
+            tf.contrib.summary.scalar('SRGAN/vgg_loss', vgg_loss)
+            tf.contrib.summary.scalar('SRGAN/adv_loss', adv_loss)
+            tf.contrib.summary.scalar('SRGAN/percept_loss', percept_loss)
 
             # Log weights
-            slots = self.optimizer.get_slot_names()
+            slots = self.gen_optim.get_slot_names()
             for variable in tape.watched_variables():
                     tf.contrib.summary.scalar(variable.name, tf.nn.l2_loss(variable))
                     for slot in slots:
-                        slotvar = self.optimizer.get_slot(variable, slot)
+                        slotvar = self.gen_optim.get_slot(variable, slot)
                         if slotvar is not None:
                             tf.contrib.summary.scalar(variable.name + '/' + slot, tf.nn.l2_loss(slotvar))
 
+            # Log a generated image
+            print(image[0:3].shape)
+            tf.contrib.summary.image('SRGAN/generated', image[0:3])
+            
+
     def update(self, hr_crop, hr_ds):
         # Construct graph
-        with tf.GradientTape() as tape:
+        with tf.GradientTape(persistent=True) as tape:
             sr = self.generator(hr_ds)
             mse_loss = tf.keras.losses.mean_squared_error(hr_crop, sr)
 
@@ -102,10 +112,11 @@ class SRGAN(object):
             adv_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=hr_disc_logits, labels=tf.ones_like(sr_disc_logits))
                                      + tf.nn.sigmoid_cross_entropy_with_logits(logits=sr_disc_logits, labels=tf.zeros_like(sr_disc_logits)))
 
-
-            percept_loss = mse_loss + vgg_loss + 1e-3 * adv_loss
+            percept_loss = tf.reduce_sum(mse_loss) + tf.reduce_mean(vgg_loss) + 1e-3 * adv_loss
         
-        self.logger(tape, mse_loss, vgg_loss, adv_loss, percept_loss)
+
+            self.logger(tape, mse_loss, vgg_loss, adv_loss, percept_loss, sr)
+
         # Compute/apply gradients for generator with perceptual loss
         gen_grads = tape.gradient(percept_loss, self.generator.weights)
         gen_grads_and_vars = zip(gen_grads, self.generator.weights)
@@ -118,7 +129,23 @@ class SRGAN(object):
 
         self.global_step.assign_add(1)
     
+
+    def pretrain_update(self, hr_crop, hr_ds):
+        # Construct graph
+        with tf.GradientTape() as tape:
+            sr = self.generator(hr_ds)
+            mse_loss = tf.keras.losses.mean_squared_error(hr_crop, sr)
+
+        # Compute/apply gradients for generator with MSE
+        gen_grads = tape.gradient(mse_loss, self.generator.weights)
+        gen_grads_and_vars = zip(gen_grads, self.generator.weights)
+        self.gen_optim.apply_gradients(gen_grads_and_vars)
+
+        self.global_step.assign_add(1)
+
     def train(self):
+        print('training')
+        session = tf.Session(config=config)
         if Path(self.save_path).is_dir():
             self.saver.restore(tf.train.latest_checkpoint(self.save_path))
         epoch = self.epoch.numpy()
@@ -135,7 +162,8 @@ class SRGAN(object):
 
 def main():
     srgan = SRGAN(cfg)
-    srgan.train()
+    sess = tf.Session(config=config)
+    sess.run(srgan.train())
 
 if __name__ == '__main__':
     main()

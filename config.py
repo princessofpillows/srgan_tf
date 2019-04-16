@@ -45,11 +45,11 @@ train_arg.add_argument("--learning_rate", type=float,
                        help="Learning rate (gradient step size)")
 
 train_arg.add_argument("--batch_size", type=int,
-                       default=1,
+                       default=10,
                        help="Number of experiences to sample from memory during training")
 
 train_arg.add_argument("--epochs", type=int,
-                       default=10,
+                       default=6,
                        help="Number of epochs for training")
 
 train_arg.add_argument("--log_dir", type=str,
@@ -65,7 +65,7 @@ train_arg.add_argument("--save_dir", type=str,
                        help="Directory to save current model")
 
 train_arg.add_argument("--save_freq", type=int,
-                       default=10,
+                       default=1,
                        help="Number of episodes before saving model")
 
 train_arg.add_argument("-f", "--extension", type=str,
