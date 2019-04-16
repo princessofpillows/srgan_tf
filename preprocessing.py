@@ -41,7 +41,7 @@ def package_data(cfg):
 
     # Get image paths
     paths_lr = list((data_dir / 'LR').glob('*.JPG'))
-    paths_hr = list((data_dir / 'HR').glob('*.png'))
+    paths_hr = list((data_dir / 'HR').glob('*.JPG'))
     if not (paths_hr and paths_lr):
         print('Error: HR or LR is empty or not in correct format')
         exit(1)

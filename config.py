@@ -21,19 +21,19 @@ preprocess_arg.add_argument("--data_dir",  type=str,
                             help="Path to image data")
 
 preprocess_arg.add_argument("--package_data",
-                            default=False,
+                            default=True,
                             help="Whether or not to invoke preprocessing.py")
 
 preprocess_arg.add_argument("--hr_resolution",
-                            default=(1536,1536),
+                            default=(384,384),
                             help="Resolution of original images")
 
 preprocess_arg.add_argument("--crop_resolution",
-                            default=(384,384),
+                            default=(96,96),
                             help="Resolution of cropped images")
 
 preprocess_arg.add_argument("--lr_resolution",
-                            default=(96,96),
+                            default=(24,24),
                             help="Resolution of downsampled images")
 
 # ----------------------------------------
