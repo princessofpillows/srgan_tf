@@ -57,7 +57,7 @@ train_arg.add_argument("--log_dir", type=str,
                        help="Directory to save logs")
 
 train_arg.add_argument("--log_freq", type=int,
-                       default=2,
+                       default=1,
                        help="Number of steps before logging weights")
 
 train_arg.add_argument("--save_dir", type=str,

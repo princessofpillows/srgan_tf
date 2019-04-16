@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-import h5py, os, cv2
+import h5py, os, cv2, time
 from tqdm import trange
 from datetime import datetime
 from pathlib import Path
@@ -69,10 +69,10 @@ class SRGAN(object):
         self.saver = tf.train.Checkpoint(generator=self.generator, gen_optim=self.gen_optim, discriminator=self.discriminator, 
                                         disc_optim=self.disc_optim, global_step=self.global_step, epoch=self.epoch)
 
-    def logger(self, tape, mse_loss, vgg_loss, adv_loss, percept_loss, images):
+    def logger(self, tape, vgg_loss, adv_loss, percept_loss, images):
         with tf.contrib.summary.record_summaries_every_n_global_steps(cfg.log_freq, self.global_step):
             # Log vars
-            tf.contrib.summary.scalar('SRGAN/mse_loss', mse_loss)
+            # tf.contrib.summary.scalar('SRGAN/mse_loss', mse_loss)
             tf.contrib.summary.scalar('SRGAN/vgg_loss', vgg_loss)
             tf.contrib.summary.scalar('SRGAN/adv_loss', adv_loss)
             tf.contrib.summary.scalar('SRGAN/percept_loss', percept_loss)
@@ -97,34 +97,33 @@ class SRGAN(object):
 
     def update(self, hr_crop, hr_ds):
         # Construct graph
-        with tf.GradientTape(persistent=True) as tape:
-            sr = self.generator(hr_ds)
+        with tf.GradientTape(persistent=True) as tape: # 27 seconds at bs=10
+            sr = self.generator(hr_ds) # 4.5 seconds at bs=10
             # mse_loss = tf.keras.losses.mean_squared_error(hr_crop, sr)
 
-            sr_vgg_logits = self.vgg(sr)
+            sr_vgg_logits = self.vgg(sr) # 8.5 seconds bs=10
             hr_vgg_logits = self.vgg(hr_crop)
             vgg_loss = tf.reduce_mean(tf.keras.losses.mean_squared_error(hr_vgg_logits, sr_vgg_logits))
 
-            sr_disc_logits = self.discriminator(sr)
+            sr_disc_logits = self.discriminator(sr) # 4.5 seconds at bs=10
             hr_disc_logits = self.discriminator(hr_crop)
 
             # Comparing HR logits with 1's labels and SR logits with 0's labels
             adv_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=hr_disc_logits, labels=tf.ones_like(sr_disc_logits))
                                      + tf.nn.sigmoid_cross_entropy_with_logits(logits=sr_disc_logits, labels=tf.zeros_like(sr_disc_logits)))
 
-
             # percept_loss = tf.reduce_sum(mse_loss) + tf.reduce_sum(mse_loss) + vgg_loss + 1e-3 * adv_loss
             percept_loss = vgg_loss + 1e-3 * adv_loss
         
-
-            self.logger(tape, mse_loss, vgg_loss, adv_loss, percept_loss, [sr[0], hr[0]])
-
-        # Compute/apply gradients for generator with perceptual loss
+            # self.logger(tape, mse_loss, vgg_loss, adv_loss, percept_loss, [sr[0], hr[0]])
+            self.logger(tape, vgg_loss, adv_loss, percept_loss, [sr[0], hr_crop[0]])
+    
+        # Compute/apply gradients for generator with perceptual loss, 69 seconds at bs=10
         gen_grads = tape.gradient(percept_loss, self.generator.weights)
         gen_grads_and_vars = zip(gen_grads, self.generator.weights)
         self.gen_optim.apply_gradients(gen_grads_and_vars)
 
-        # Compute/apply gradients for discriminator with adversarial loss
+        # Compute/apply gradients for discriminator with adversarial loss, 28 seconds at bs=10
         disc_grads = tape.gradient(adv_loss, self.discriminator.weights)
         disc_grads_and_vars = zip(disc_grads, self.discriminator.weights)
         self.disc_optim.apply_gradients(disc_grads_and_vars)
