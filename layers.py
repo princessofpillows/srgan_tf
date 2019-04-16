@@ -8,7 +8,7 @@ class Residual(tf.keras.layers.Layer):
         self.layer = tf.keras.Sequential([
             tf.keras.layers.Conv2D(filters, 3, 1, padding="same", kernel_initializer=cfg.init),
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
+            tf.keras.layers.PReLU(),
             tf.keras.layers.Conv2D(filters, 3, 1, padding="same", kernel_initializer=cfg.init),
             tf.keras.layers.BatchNormalization()
         ])

@@ -11,7 +11,8 @@ class Generator(tf.keras.Model):
 
         self.block0 = tf.keras.Sequential()
             # (N, 3, 96, 96) -> (N, 64, 96, 96)
-        self.block0.add(tf.keras.layers.Conv2D(num_filters, 9, padding="same", activation=cfg.activ, kernel_initializer=cfg.init))
+        self.block0.add(tf.keras.layers.Conv2D(num_filters, 9, padding="same", kernel_initializer=cfg.init))
+        self.block0.add(tf.keras.layers.PReLU())
 
         # Add k resnet blocks
         for blk in range(num_blks):
@@ -25,12 +26,12 @@ class Generator(tf.keras.Model):
             tf.keras.layers.Conv2D(num_filters*4, 3, padding="same", kernel_initializer=cfg.init),
             # (N, 256, 96, 96) -> (N, 64, 192, 192)
             PixelShuffle(2),
-            tf.keras.layers.ReLU(),
+            tf.keras.layers.PReLU(),
             # (N, 64, 192, 192) -> (N, 256, 192, 192)
             tf.keras.layers.Conv2D(num_filters*4, 3, padding="same", kernel_initializer=cfg.init),
             # (N, 256, 192, 192) -> (N, 64, 384, 384)
             PixelShuffle(2),
-            tf.keras.layers.ReLU(),
+            tf.keras.layers.PReLU(),
             # (N, 64, 384, 384) -> (N, 3, 384, 384)
             tf.keras.layers.Conv2D(cfg.num_channels, 3, padding="same", kernel_initializer=cfg.init),
         ])
@@ -53,35 +54,36 @@ class Discriminator(tf.keras.Model):
         # Channels in, channels out, filter size, stride
         self.model = tf.keras.Sequential([
             # (N, 3, 384, 384) -> (N, 64, 384, 384)
-            tf.keras.layers.Conv2D(num_filters, 3, padding="same", activation=cfg.activ, kernel_initializer=cfg.init),
+            tf.keras.layers.Conv2D(num_filters, 3, padding="same", kernel_initializer=cfg.init),
+            tf.keras.layers.LeakyReLU(),
             # (N, 64, 384, 384) -> (N, 64, 192, 192)
             tf.keras.layers.Conv2D(num_filters, 3, 2, padding="same", kernel_initializer=cfg.init),
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
+            tf.keras.layers.LeakyReLU(),
             # (N, 64, 192, 192) -> (N, 128, 192, 192)
             tf.keras.layers.Conv2D(num_filters*2, 3, padding="same", kernel_initializer=cfg.init),
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
+            tf.keras.layers.LeakyReLU(),
             # (N, 128, 192, 192) -> (N, 128, 96, 96)
             tf.keras.layers.Conv2D(num_filters*2, 3, 2, padding="same", kernel_initializer=cfg.init),
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
+            tf.keras.layers.LeakyReLU(),
             # (N, 128, 96, 96) -> (N, 256, 96, 96)
             tf.keras.layers.Conv2D(num_filters*4, 3, padding="same", kernel_initializer=cfg.init),
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
+            tf.keras.layers.LeakyReLU(),
             # (N, 256, 96, 96) -> (N, 256, 48, 48)
             tf.keras.layers.Conv2D(num_filters*4, 3, 2, padding="same", kernel_initializer=cfg.init),
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
+            tf.keras.layers.LeakyReLU(),
             # (N, 256, 48, 48) -> (N, 512, 48, 48)
             tf.keras.layers.Conv2D(num_filters*8, 3, padding="same", kernel_initializer=cfg.init),
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
+            tf.keras.layers.LeakyReLU(),
             # (N, 512, 48, 48) -> (N, 512, 24, 24)
             tf.keras.layers.Conv2D(num_filters*8, 3, 2, padding="same", kernel_initializer=cfg.init),
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
+            tf.keras.layers.LeakyReLU(),
             # (N, 512, 24, 24) -> (N, 512*24*24) -> (N, 294912)
             tf.keras.layers.Flatten(),
             # (N, 294912) -> (N, 1024)
