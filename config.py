@@ -21,11 +21,11 @@ preprocess_arg.add_argument("--data_dir",  type=str,
                             help="Path to image data")
 
 preprocess_arg.add_argument("--package_data",
-                            default=True,
+                            default=False,
                             help="Whether or not to invoke preprocessing.py")
 
 preprocess_arg.add_argument("--hr_resolution",
-                            default=(384,384),
+                            default=(1536,1536),
                             help="Resolution of original images")
 
 preprocess_arg.add_argument("--crop_resolution",
@@ -45,11 +45,11 @@ train_arg.add_argument("--learning_rate", type=float,
                        help="Learning rate (gradient step size)")
 
 train_arg.add_argument("--batch_size", type=int,
-                       default=10,
+                       default=16,
                        help="Number of experiences to sample from memory during training")
 
 train_arg.add_argument("--epochs", type=int,
-                       default=6,
+                       default=1000,
                        help="Number of epochs for training")
 
 train_arg.add_argument("--log_dir", type=str,
