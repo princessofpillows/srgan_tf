@@ -49,7 +49,7 @@ def package_data(cfg):
     # Write to h5 file
     f = h5py.File(data_dir / 'data.h5', 'w')
     # Get our real world noise low resolution images
-    f = process_lr(cfg, paths_lr, f)
+    #f = process_lr(cfg, paths_lr, f)
     # Get our high resolution images
     f = process_hr(cfg, paths_hr, f)
     f.close()

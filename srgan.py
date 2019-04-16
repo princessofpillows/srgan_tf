@@ -69,7 +69,7 @@ class SRGAN(object):
         self.saver = tf.train.Checkpoint(generator=self.generator, gen_optim=self.gen_optim, discriminator=self.discriminator, 
                                         disc_optim=self.disc_optim, global_step=self.global_step, epoch=self.epoch)
 
-    def logger(self, tape, vgg_loss, adv_loss, percept_loss, images):
+    def logger(self, tape, vgg_loss, adv_loss, percept_loss):
         with tf.contrib.summary.record_summaries_every_n_global_steps(cfg.log_freq, self.global_step):
             # Log vars
             # tf.contrib.summary.scalar('SRGAN/mse_loss', mse_loss)
@@ -86,10 +86,7 @@ class SRGAN(object):
                         if slotvar is not None:
                             tf.contrib.summary.scalar(variable.name + '/' + slot, tf.nn.l2_loss(slotvar))
 
-            # Log a generated image
-            tf.contrib.summary.image('SRGAN/generated', images)
-    
-    def log_img(self, img, name):
+    def log_img(self, name, img):
         if self.global_step.numpy() % (cfg.log_freq * 5) == 0:
             with tf.contrib.summary.always_record_summaries():
                 img = tf.cast(img, tf.float32)
@@ -115,9 +112,9 @@ class SRGAN(object):
             # percept_loss = tf.reduce_sum(mse_loss) + tf.reduce_sum(mse_loss) + vgg_loss + 1e-3 * adv_loss
             percept_loss = vgg_loss + 1e-3 * adv_loss
         
-        # self.logger(tape, mse_loss, vgg_loss, adv_loss, percept_loss, [sr[0], hr[0]])
-        self.logger(tape, vgg_loss, adv_loss, percept_loss, [sr[0], hr_crop[0]])
-    
+        self.logger(tape, vgg_loss, adv_loss, percept_loss)
+        self.log_img("SR", sr)
+        self.log_img("HR", hr_crop)
         # Compute/apply gradients for generator with perceptual loss, 69 seconds at bs=10
         gen_grads = tape.gradient(percept_loss, self.generator.weights)
         gen_grads_and_vars = zip(gen_grads, self.generator.weights)
@@ -127,20 +124,6 @@ class SRGAN(object):
         disc_grads = tape.gradient(adv_loss, self.discriminator.weights)
         disc_grads_and_vars = zip(disc_grads, self.discriminator.weights)
         self.disc_optim.apply_gradients(disc_grads_and_vars)
-
-        self.global_step.assign_add(1)
-    
-
-    def pretrain_update(self, hr_crop, hr_ds):
-        # Construct graph
-        with tf.GradientTape() as tape:
-            sr = self.generator(hr_ds)
-            mse_loss = tf.keras.losses.mean_squared_error(hr_crop, sr)
-
-        # Compute/apply gradients for generator with MSE
-        gen_grads = tape.gradient(mse_loss, self.generator.weights)
-        gen_grads_and_vars = zip(gen_grads, self.generator.weights)
-        self.gen_optim.apply_gradients(gen_grads_and_vars)
 
         self.global_step.assign_add(1)
 
