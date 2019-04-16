@@ -55,7 +55,7 @@ class Discriminator(tf.keras.Model):
         self.model = tf.keras.Sequential([
             # (N, 3, 384, 384) -> (N, 64, 384, 384)
             tf.keras.layers.Conv2D(num_filters, 3, padding="same", kernel_initializer=cfg.init),
-            LeakyReLU()
+            tf.keras.layers.LeakyReLU(),
             # (N, 64, 384, 384) -> (N, 64, 192, 192)
             tf.keras.layers.Conv2D(num_filters, 3, 2, padding="same", kernel_initializer=cfg.init),
             tf.keras.layers.BatchNormalization(),
@@ -88,7 +88,7 @@ class Discriminator(tf.keras.Model):
             tf.keras.layers.Flatten(),
             # (N, 294912) -> (N, 1024)
             tf.keras.layers.Dense(num_fc, kernel_initializer=cfg.init),
-            tf.keras.layers.ReLU(),
+            tf.keras.layers.PReLU(),
             # (N, 1024) -> (N, 1)
             tf.keras.layers.Dense(1, kernel_initializer=cfg.init)
         ])
