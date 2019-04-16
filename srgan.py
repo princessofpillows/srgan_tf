@@ -153,8 +153,13 @@ class SRGAN(object):
             # Uniform shuffle
             batch = self.data_tr.shuffle(self.size).batch(cfg.batch_size)
             for hr in batch:
+                # Normalize
+                hr = tf.image.per_image_standardization(hr)
+                # Random 384x384 crop
                 hr_crop = tf.image.random_crop(hr, (cfg.batch_size,) + cfg.crop_resolution + (3,))
-                hr_ds = tf.image.resize(hr_crop, cfg.lr_resolution, tf.image.ResizeMethod.BICUBIC)
+                # Apply gaussian blur and downsample to 96x96
+                hr_crop_blur = cv2.GaussianBlur(hr_crop, (3, 3), 0)
+                hr_ds = tf.image.resize(hr_crop_blur, cfg.lr_resolution, tf.image.ResizeMethod.BICUBIC)
                 self.update(hr_crop, hr_ds)
             self.epoch.assign_add(1)
             if epoch % cfg.save_freq == 0:
