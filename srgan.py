@@ -115,8 +115,8 @@ class SRGAN(object):
             # percept_loss = tf.reduce_sum(mse_loss) + tf.reduce_sum(mse_loss) + vgg_loss + 1e-3 * adv_loss
             percept_loss = vgg_loss + 1e-3 * adv_loss
         
-            # self.logger(tape, mse_loss, vgg_loss, adv_loss, percept_loss, [sr[0], hr[0]])
-            self.logger(tape, vgg_loss, adv_loss, percept_loss, [sr[0], hr_crop[0]])
+        # self.logger(tape, mse_loss, vgg_loss, adv_loss, percept_loss, [sr[0], hr[0]])
+        self.logger(tape, vgg_loss, adv_loss, percept_loss, [sr[0], hr_crop[0]])
     
         # Compute/apply gradients for generator with perceptual loss, 69 seconds at bs=10
         gen_grads = tape.gradient(percept_loss, self.generator.weights)
