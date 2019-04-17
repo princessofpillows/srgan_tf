@@ -88,7 +88,7 @@ class Discriminator(tf.keras.Model):
             tf.keras.layers.Flatten(),
             # (N, 294912) -> (N, 1024)
             tf.keras.layers.Dense(num_fc, kernel_initializer=cfg.init),
-            tf.keras.layers.PReLU(),
+            tf.keras.layers.LeakyReLU(),
             # (N, 1024) -> (N, 1)
             tf.keras.layers.Dense(1, kernel_initializer=cfg.init)
         ])

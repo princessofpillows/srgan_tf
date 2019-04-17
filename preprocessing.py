@@ -10,7 +10,7 @@ def resize(path, res):
 def process_lr(cfg, paths, f):
     lr = []
     # Process low resolution images
-    for i in trange(256):
+    for i in trange(128):
         lr.append(resize(paths[i], cfg.hr_resolution))
 
     f.create_dataset('lr', data=lr, dtype='uint8')
@@ -19,7 +19,7 @@ def process_lr(cfg, paths, f):
 def process_hr(cfg, paths, f):
     hr = []
     # Process high resolution images
-    for i in trange(256):
+    for i in trange(128):
         hr.append(resize(paths[i], cfg.hr_resolution))
 
     f.create_dataset('hr', data=hr, dtype='uint8')

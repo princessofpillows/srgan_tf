@@ -8,7 +8,6 @@ from config import get_config
 from preprocessing import package_data
 from models import Generator, Discriminator
 
-
 tf.enable_eager_execution()
 cfg = get_config()
 
@@ -24,7 +23,9 @@ class SRGAN(object):
         # Load models
         self.generator = Generator(cfg)
         self.discriminator = Discriminator(cfg)
-        self.vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet', input_shape=cfg.hr_resolution + (3,), pooling=None)
+
+        self.vgg_features = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet', input_shape=cfg.hr_resolution + (3,))
+
         self.gen_optim = tf.train.AdamOptimizer(cfg.learning_rate)
         self.disc_optim = tf.train.AdamOptimizer(cfg.learning_rate)
 
@@ -45,18 +46,16 @@ class SRGAN(object):
 
         s = np.arange(len(hr))
         np.random.shuffle(s)
+
         # shuffle randomly
         #lr = np.asarray(lr)[s]
         hr = np.asarray(hr)[s]
-
-        # Normalize
-        #hr = ((hr - hr.mean()) / hr.std()).astype(np.float32)
 
         self.size = len(hr)
         self.data_tr = tf.data.Dataset.from_tensor_slices((hr))
     
     def pretrain(self):
-        for epoch in trange(cfg.epochs):
+        for epoch in trange(2):
             # Uniform shuffle
             batch = self.data_tr.shuffle(self.size).batch(cfg.batch_size)
             for hr in batch:
@@ -129,8 +128,13 @@ class SRGAN(object):
             sr = self.generator(hr_ds) # 4.5 seconds at bs=10
             # mse_loss = tf.keras.losses.mean_squared_error(hr_crop, sr)
 
-            sr_vgg_logits = self.vgg(sr) # 8.5 seconds bs=10
-            hr_vgg_logits = self.vgg(hr_crop)
+            
+            sr_vgg_logits = self.vgg_features(tf.keras.applications.vgg19.preprocess_input(sr))[:,:,:,:256] # 8.5 seconds bs=10
+            hr_vgg_logits = self.vgg_features(tf.keras.applications.vgg19.preprocess_input(hr_crop))[:,:,:,:256]
+
+            
+            print(sr_vgg_logits.shape)
+
             vgg_loss = tf.reduce_mean(tf.keras.losses.mean_squared_error(hr_vgg_logits, sr_vgg_logits))
 
             sr_disc_logits = self.discriminator(sr) # 4.5 seconds at bs=10
