@@ -37,11 +37,22 @@ class Generator(tf.keras.Model):
         ])
 
         self.pad = tf.keras.layers.Conv2D(num_filters, 1, padding="same")
+
+        # Create saver
+        self.save_path = cfg.save_dir + cfg.extension + 'GEN'
+        self.ckpt_prefix = self.save_path + '/ckpt'
+        self.saver = tf.train.Checkpoint(block0=self.block0, block1=self.block1)
     
     def call(self, x_in):
         x_out = self.block0(x_in)
         x_pad = self.pad(x_in)
         return self.block1(x_out + x_pad)
+    
+    def save(self):
+        self.saver.save(file_prefix=self.ckpt_prefix)
+    
+    def load(self):
+        self.saver.restore(tf.train.latest_checkpoint(self.save_path))
 
 
 class Discriminator(tf.keras.Model):
@@ -92,8 +103,19 @@ class Discriminator(tf.keras.Model):
             # (N, 1024) -> (N, 1)
             tf.keras.layers.Dense(1, kernel_initializer=cfg.init)
         ])
+    
+        # Create saver
+        self.save_path = cfg.save_dir + cfg.extension + 'GEN'
+        self.ckpt_prefix = self.save_path + '/ckpt'
+        self.saver = tf.train.Checkpoint(model=self.model)
 
     def call(self, x_in):
         x_out = self.model(x_in)
         return tf.keras.activations.sigmoid(x_out)
+    
+    def save(self):
+        self.saver.save(file_prefix=self.ckpt_prefix)
+    
+    def load(self):
+        self.saver.restore(tf.train.latest_checkpoint(self.save_path))
 

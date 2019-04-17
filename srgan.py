@@ -32,6 +32,21 @@ class SRGAN(object):
         self.preprocessing()
         self.pretrain()
 
+    def build_writers(self):
+        if not Path(cfg.save_dir).is_dir():
+            os.mkdir(cfg.save_dir)
+        if cfg.extension is None:
+            cfg.extension = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+
+        self.log_path = cfg.log_dir + cfg.extension
+        self.writer = tf.contrib.summary.create_file_writer(self.log_path)
+        self.writer.set_as_default()
+
+        self.save_path = cfg.save_dir + cfg.extension
+        self.ckpt_prefix = self.save_path + '/ckpt'
+        self.saver = tf.train.Checkpoint(generator=self.generator, gen_optim=self.gen_optim, discriminator=self.discriminator, 
+                                        disc_optim=self.disc_optim, global_step=self.global_step, epoch=self.epoch)
+    
     def preprocessing(self):
         if cfg.package_data:
             # Package data into H5 format
@@ -54,8 +69,12 @@ class SRGAN(object):
 
         self.size = len(hr)
         self.data_tr = tf.data.Dataset.from_tensor_slices((hr))
-    
+
     def pretrain(self):
+        if Path(self.generator.save_path).is_dir():
+            print(self.generator.weights)
+            self.generator.load()
+            print(self.generator.weights)
         for epoch in trange(cfg.epochs):
             # Uniform shuffle
             batch = self.data_tr.shuffle(self.size).batch(cfg.batch_size)
@@ -66,11 +85,11 @@ class SRGAN(object):
                 hr_crop_blur = []
                 for i in range(len(hr_crop)):
                     hr_crop_blur.append(cv2.GaussianBlur(hr_crop[i].numpy(), (3, 3), 0))
-                hr_ds = tf.image.resize(hr_crop_blur, cfg.lr_resolution, tf.image.ResizeMethod.BICUBIC)
+                hr_ds = tf.image.resize(hr_crop_blur, cfg.lr_resolution, tf.image.ResizeMethod.BICUBIC) / 255.
                 
                 # Construct graph
                 with tf.GradientTape() as tape:
-                    sr = self.generator(hr_ds)
+                    sr = self.generator(hr_ds)*255.
                     loss = tf.keras.losses.mean_squared_error(hr_crop, sr)
                 
                 with tf.contrib.summary.record_summaries_every_n_global_steps(cfg.log_freq, self.global_step):
@@ -86,20 +105,8 @@ class SRGAN(object):
 
                 self.global_step.assign_add(1)
 
-    def build_writers(self):
-        if not Path(cfg.save_dir).is_dir():
-            os.mkdir(cfg.save_dir)
-        if cfg.extension is None:
-            cfg.extension = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
-
-        self.log_path = cfg.log_dir + cfg.extension
-        self.writer = tf.contrib.summary.create_file_writer(self.log_path)
-        self.writer.set_as_default()
-
-        self.save_path = cfg.save_dir + cfg.extension
-        self.ckpt_prefix = self.save_path + '/ckpt'
-        self.saver = tf.train.Checkpoint(generator=self.generator, gen_optim=self.gen_optim, discriminator=self.discriminator, 
-                                        disc_optim=self.disc_optim, global_step=self.global_step, epoch=self.epoch)
+            if epoch % cfg.save_freq == 0:
+                self.generator.save()
 
     def logger(self, tape, vgg_loss, adv_loss, percept_loss):
         with tf.contrib.summary.record_summaries_every_n_global_steps(cfg.log_freq, self.global_step):
@@ -178,8 +185,8 @@ class SRGAN(object):
                 hr_ds = tf.image.resize(hr_crop_blur, cfg.lr_resolution, tf.image.ResizeMethod.BICUBIC)
                 self.update(hr_crop, hr_ds)
             self.epoch.assign_add(1)
-            if epoch % cfg.save_freq == 0:
-                self.saver.save(file_prefix=self.ckpt_prefix)
+            #if epoch % cfg.save_freq == 0:
+            #    self.saver.save(file_prefix=self.ckpt_prefix)
 
 def main():
     srgan = SRGAN(cfg)

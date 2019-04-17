@@ -49,7 +49,7 @@ train_arg.add_argument("--batch_size", type=int,
                        help="Number of experiences to sample from memory during training")
 
 train_arg.add_argument("--epochs", type=int,
-                       default=1000,
+                       default=100,
                        help="Number of epochs for training")
 
 train_arg.add_argument("--log_dir", type=str,
@@ -69,7 +69,7 @@ train_arg.add_argument("--save_freq", type=int,
                        help="Number of episodes before saving model")
 
 train_arg.add_argument("-f", "--extension", type=str,
-                       default=None,
+                       default="best",
                        help="Specific name to save training session or restore from")
 
 # ----------------------------------------
