@@ -24,7 +24,7 @@ class SRGAN(object):
         # Load models
         self.generator = Generator(cfg)
         self.discriminator = Discriminator(cfg)
-        self.vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet', input_shape=cfg.hr_resolution + (3,), pooling=None)
+        #self.vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet', input_shape=cfg.hr_resolution + (3,), pooling=None)
         self.gen_optim = tf.train.AdamOptimizer(cfg.learning_rate)
         self.disc_optim = tf.train.AdamOptimizer(cfg.learning_rate)
 
@@ -108,11 +108,9 @@ class SRGAN(object):
             if epoch % cfg.save_freq == 0:
                 self.generator.save()
 
-    def logger(self, tape, vgg_loss, adv_loss, percept_loss):
+    def logger(self, tape, adv_loss, percept_loss):
         with tf.contrib.summary.record_summaries_every_n_global_steps(cfg.log_freq, self.global_step):
             # Log vars
-            # tf.contrib.summary.scalar('mse_loss', mse_loss)
-            tf.contrib.summary.scalar('vgg_loss', vgg_loss)
             tf.contrib.summary.scalar('adv_loss', adv_loss)
             tf.contrib.summary.scalar('percept_loss', percept_loss)
 
@@ -133,15 +131,15 @@ class SRGAN(object):
 
     def update(self, hr_crop, hr_ds):
         # Construct graph
-        with tf.GradientTape(persistent=True) as tape: # 27 seconds at bs=10
-            sr = self.generator(hr_ds) # 4.5 seconds at bs=10
-            # mse_loss = tf.keras.losses.mean_squared_error(hr_crop, sr)
+        with tf.GradientTape(persistent=True) as tape:
+            sr = self.generator(hr_ds) * 255.
+            mse_loss = tf.keras.losses.mean_squared_error(hr_crop, sr)
 
-            sr_vgg_logits = self.vgg(sr) # 8.5 seconds bs=10
-            hr_vgg_logits = self.vgg(hr_crop)
-            vgg_loss = tf.reduce_mean(tf.keras.losses.mean_squared_error(hr_vgg_logits, sr_vgg_logits))
+            #sr_vgg_logits = self.vgg(sr) # 8.5 seconds bs=10
+            #hr_vgg_logits = self.vgg(hr_crop)
+            #vgg_loss = tf.reduce_mean(tf.keras.losses.mean_squared_error(hr_vgg_logits, sr_vgg_logits))
 
-            sr_disc_logits = self.discriminator(sr) # 4.5 seconds at bs=10
+            sr_disc_logits = self.discriminator(sr)
             hr_disc_logits = self.discriminator(hr_crop)
 
             # Comparing HR logits with 1's labels and SR logits with 0's labels
@@ -149,17 +147,17 @@ class SRGAN(object):
                                      + tf.nn.sigmoid_cross_entropy_with_logits(logits=sr_disc_logits, labels=tf.zeros_like(sr_disc_logits)))
 
             # percept_loss = tf.reduce_sum(mse_loss) + tf.reduce_sum(mse_loss) + vgg_loss + 1e-3 * adv_loss
-            percept_loss = vgg_loss + 1e-3 * adv_loss
+            percept_loss = mse_loss + 1e-3 * adv_loss
         
-        self.logger(tape, vgg_loss, adv_loss, percept_loss)
+        self.logger(tape, adv_loss, percept_loss)
         self.log_img("SR", sr)
         self.log_img("HR", hr_crop)
-        # Compute/apply gradients for generator with perceptual loss, 69 seconds at bs=10
+        # Compute/apply gradients for generator with perceptual loss
         gen_grads = tape.gradient(percept_loss, self.generator.weights)
         gen_grads_and_vars = zip(gen_grads, self.generator.weights)
         self.gen_optim.apply_gradients(gen_grads_and_vars)
 
-        # Compute/apply gradients for discriminator with adversarial loss, 28 seconds at bs=10
+        # Compute/apply gradients for discriminator with adversarial loss
         disc_grads = tape.gradient(adv_loss, self.discriminator.weights)
         disc_grads_and_vars = zip(disc_grads, self.discriminator.weights)
         self.disc_optim.apply_gradients(disc_grads_and_vars)
@@ -174,19 +172,18 @@ class SRGAN(object):
             # Uniform shuffle
             batch = self.data_tr.shuffle(self.size).batch(cfg.batch_size)
             for hr in batch:
-                # Normalize
-                hr = tf.image.per_image_standardization(hr)
                 # Random 96x96 crop
-                hr_crop = tf.image.random_crop(hr, (cfg.batch_size,) + cfg.crop_resolution + (3,))
+                hr_crop = tf.image.random_crop(hr, (cfg.batch_size,) + cfg.crop_resolution + (3,)) / 255.
                 # Apply gaussian blur and downsample to 24x24
                 hr_crop_blur = []
                 for i in range(len(hr_crop)):
                     hr_crop_blur.append(cv2.GaussianBlur(hr_crop[i].numpy(), (3, 3), 0))
                 hr_ds = tf.image.resize(hr_crop_blur, cfg.lr_resolution, tf.image.ResizeMethod.BICUBIC)
+                # Update weights
                 self.update(hr_crop, hr_ds)
             self.epoch.assign_add(1)
-            #if epoch % cfg.save_freq == 0:
-            #    self.saver.save(file_prefix=self.ckpt_prefix)
+            if epoch % cfg.save_freq == 0:
+                self.saver.save(file_prefix=self.ckpt_prefix)
 
 def main():
     srgan = SRGAN(cfg)

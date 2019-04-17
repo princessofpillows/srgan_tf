@@ -65,7 +65,7 @@ train_arg.add_argument("--save_dir", type=str,
                        help="Directory to save current model")
 
 train_arg.add_argument("--save_freq", type=int,
-                       default=1,
+                       default=20,
                        help="Number of episodes before saving model")
 
 train_arg.add_argument("-f", "--extension", type=str,
