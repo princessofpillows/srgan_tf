@@ -30,7 +30,7 @@ bibsource = {dblp computer science bibliography, https://dblp.org}
 
 Our approach was to imitate the implementation of this paper, and to see its significance to real-world noise. We created our own dataset for testing our theory that the results of the GAN was undoing the downsampling, ie. undoing the gaussian noise.
 
-Unfortunately due to the time constraint from other classes and the magnitude of this project, the model has a flaw which makes the network not converge towards meaningful results. This is possibly due to normalization problems, or a problem with the custom convolution as PyTorch does not have an option for 'same' padding. It is also possible that we are misinterpreting the Content Loss (VGG19 network).
+Unfortunately due to the time constraint from other classes and the magnitude of this project, the model has a flaw which makes the network not converge towards meaningful results. It is also possible that we are misinterpreting the Content Loss (VGG19 network).
 
 Overall this was a great learning experience and I personally hope to recreate/modify this in the future.
 
@@ -60,4 +60,4 @@ pages={211-252}
 
 ### Tensorboard
 
-This project uses tensorboard for viewing the training loss and images. In a separate terminal window, run `tensorboard --logdir logs` to run tensorboard locally. With this, you can view the loss in the *SCALARS* tab, and images in the *IMAGES* tab.
+This project uses tensorboard for viewing the training loss and images. In a separate terminal window, run `tensorboard --logdir logs` to run tensorboard locally.
